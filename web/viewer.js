@@ -1562,11 +1562,28 @@ var TextLayerBuilder = function textLayerBuilder(textLayerDiv) {
 };
 
 window.addEventListener('load', function webViewerLoad(evt) {
-  PDFView.initialize();
-  var params = PDFView.parseQueryString(document.location.search.substring(1));
+    webViewerInit();
+    
+    if(parent && parent.viewerEmbedCallback) {
+      parent.viewerEmbedCallback({open: webViewerOpen});
+    } else {
+      // Keep default behavior
+      var params = PDFView.parseQueryString(document.location.search.substring(1));
 
-  var file = PDFJS.isFirefoxExtension ?
-              window.location.toString() : params.file || kDefaultURL;
+      var file = PDFJS.isFirefoxExtension ?
+        window.location.toString() : params.file || kDefaultURL;
+
+      webViewerOpen(file, 0);
+    }
+  });
+
+function webViewerOpen(file, page) {
+  PDFView.open(file, page);
+  document.getElementById('loadingBox').className = '';
+}
+
+function webViewerInit() {
+  PDFView.initialize();
 
   if (PDFJS.isFirefoxExtension || !window.File || !window.FileReader ||
       !window.FileList || !window.Blob) {
@@ -1635,9 +1652,7 @@ window.addEventListener('load', function webViewerLoad(evt) {
       outerContainer.classList.toggle('sidebarOpen');
       updateThumbViewArea();
     });
-
-  PDFView.open(file, 0);
-}, true);
+}
 
 /**
  * Render the next not yet visible page already such that it is
