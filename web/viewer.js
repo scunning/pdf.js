@@ -1099,6 +1099,44 @@ var PageView = function pageView(container, pdfPage, id, scale,
 
       return container;
     }
+    function createHighlightAnnotation(item) {
+      // TODO Implement Popup annotation support and then fix this
+      // TODO use QuadPoints instead of Rect
+      // TODO support multiple highlights in one annotation as per spec
+      // 8.4.5 - Text Markup Annotations, Table 8.30
+      // TODO add support for Underline, Squiggly, and StrikeOut
+      // Note Figure 8.9 doesn't match with actual PDFs, (x3,y3) and (x4, y4)
+      // need to be swapped
+      // Also remember implementation note 92 in Appendix H
+      // - text is oriented with respect to vertex with smallest y value
+      // (or leftmost if match) and next counterclockwise vertex
+      // regardless of position in array
+      // will need to look into CSS transformations to support
+      // the arbitary rotation that is possible
+      // NOTE: CSS transform.rotate works from the center of the element
+      // TODO: Support rotated highlights
+
+      // Future function note
+      // Annotations can be added at runtime by using to
+      // PDFView.pages[page].pdfpage.annotationsPromise._data.push(newAnnot)
+      // Current hack to get page redrawn is
+      // store PDFView.currentScale
+      // set PDFView.currentScale to a different value
+      // call PDFView.parseScale on the stored PDFView.currentScale value
+      var container = document.createElement('section');
+      container.className = 'annotHighlight';
+      var highlight = createElementWithStyle('div', item);
+        
+      
+      var color = item.color;
+      var rgbColor = "rgb(" + Math.floor(color[0] * 255) + "," +
+        Math.floor(color[1] * 255) + "," + Math.floor(color[2] * 255) + ")";
+      highlight.style.backgroundColor = rgbColor;
+
+      container.appendChild(highlight);
+
+      return container;
+    }
 
     pdfPage.getAnnotations().then(function(items) {
       for (var i = 0; i < items.length; i++) {
@@ -1116,6 +1154,10 @@ var PageView = function pageView(container, pdfPage, id, scale,
             if (comment)
               div.appendChild(comment);
             break;
+        case 'Highlight':
+          var highlight = createHighlightAnnotation(item);
+          if(highlight)
+            div.appendChild(highlight);
           case 'Widget':
             // TODO: support forms
             PDFView.fallback();

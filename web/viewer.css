@@ -908,6 +908,12 @@ canvas {
   margin: 0px;
 }
 
+.annotHighlight > div {
+    position: absolute;
+    padding: 0.2em;
+    opacity: 0.25; /* This seems to match other PDF viewers pretty well */
+}
+
 #errorWrapper {
   background: none repeat scroll 0 0 #FF5555;
   color: white;

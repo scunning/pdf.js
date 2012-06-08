@@ -341,6 +341,18 @@ var Page = (function PageClosure() {
             item.name = !annotation.has('Name') ? 'Note' :
               annotation.get('Name').name;
             break;
+        case 'Highlight':
+	    var content = annotation.get('Contents');
+	    var title = annotation.get('T');
+	    if (annotation.has('AP'))
+		TODO('Support appearance streams');
+	    item.content = stringToPDFString(content || '');
+	    item.title = stringToPDFString(title || '');
+	    item.quadpoints = annotation.get('QuadPoints');
+	    // Other PDF tools seem to default to green for highlights
+	    item.color = !annotation.has('C') ? [0, 1, 0] :
+		annotation.get('C');
+	    break;
           default:
             TODO('unimplemented annotation type: ' + subtype.name);
             break;
