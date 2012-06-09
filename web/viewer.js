@@ -1114,10 +1114,8 @@ var PageView = function pageView(container, pdfPage, id, scale,
       var quads = createQuadDisplayElements(item);
       for (var i = 0; i < quads.length; i++) {
         var child = quads[i];
-        child.addEventListener('click', function(evt) {
-            alert('highlight click');
-          }, false);
         container.appendChild(child);
+        container.appendChild(createPopupAnnotation(child, item.popup));
       }
       return container;
     }
@@ -1136,12 +1134,11 @@ var PageView = function pageView(container, pdfPage, id, scale,
       }
       var elts = [];
       var color = item.color;
-      log('color: ' + color);
       var rgbColor = null;
       if (color.length == 3) {
         rgbColor = PDFJS.Util.makeCssRgb(color[0], color[1], color[2]);
       } else {
-        log("TODO: Support DeviceGrey and DeviceCMYK for highlight colours");
+        log("TODO: Highlight only supports DeviceRGB color space");
       }
       var quads = item.quadpoints;
       var quadcount = quads.length / 8;
@@ -1192,15 +1189,54 @@ var PageView = function pageView(container, pdfPage, id, scale,
       return elts;
     }
 
+    function createPopupAnnotation(parentElt, item) {
+      var rect = viewport.convertToViewportRectangle(item.rect);
+      rect = PDFJS.Util.normalizeRect(rect);
+      debugger;
+      var content = document.createElement('div');
+      content.className = 'annotPopup';
+      content.setAttribute('hidden', true);
+      var title = document.createElement('h1');
+      var text = document.createElement('p');
+      content.style.left = Math.floor(rect[2]) + 'px';
+      content.style.top = Math.floor(rect[1]) + 'px';
+      var color = item.color;
+      if (color.length == 3)
+        content.style.backgroundColor = Util.makeCssRgb(color[0], color[1], color[2]);
+      else
+        log('TODO: Highlight only supports DeviceRGB color space');
+      title.textContent = item.title;
+
+      var e = document.createElement('span');
+      var lines = item.content.split('\n');
+      for(var i = 0, ii = lines.length; i < ii; ++i) {
+        var line = lines[i];
+        e.appendChild(document.createTextNode(line));
+        if(i < (ii - 1))
+          e.appendChild(document.createElement('br'));
+      }
+      text.appendChild(e);
+
+      parentElt.addEventListener('click', function popupClick() {
+          if (content.hasAttribute('hidden'))
+              content.removeAttribute('hidden');
+          else
+            content.setAttribute('hidden', true);
+        }, false);
+
+      content.appendChild(title);
+      content.appendChild(text);
+
+      return content;
+    }
+
+
     function setPrefixedCSSProperty(elt, prop, val) {
       elt.style[prop] = val;
       elt.style['moz' + prop] = val;
       elt.style['webkit' + prop] = val;
       elt.style['ms' + prop] = val;
       elt.style['o' + prop] = val;
-    }
-
-    function createPopupAnnotation(item) {
     }
 
     pdfPage.getAnnotations().then(function(items) {

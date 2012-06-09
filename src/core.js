@@ -333,44 +333,51 @@ var Page = (function PageClosure() {
             item.textAlignment = getInheritableProperty(annotation, 'Q');
             item.flags = getInheritableProperty(annotation, 'Ff') || 0;
             break;
-          case 'Text':
-            var content = annotation.get('Contents');
-            var title = annotation.get('T');
-            item.content = stringToPDFString(content || '');
-            item.title = stringToPDFString(title || '');
-            item.name = !annotation.has('Name') ? 'Note' :
-              annotation.get('Name').name;
-            break;
+        case 'Text':
+          var content = annotation.get('Contents');
+          var title = annotation.get('T');
+          item.content = stringToPDFString(content || '');
+          item.title = stringToPDFString(title || '');
+          item.name = !annotation.has('Name') ? 'Note' :
+            annotation.get('Name').name;
+          break;
         case 'Highlight':
-	    var content = annotation.get('Contents');
-	    var title = annotation.get('T');
-	    if (annotation.has('AP'))
-		TODO('Support appearance streams');
-	    item.content = stringToPDFString(content || '');
-	    item.title = stringToPDFString(title || '');
-	    item.quadpoints = annotation.get('QuadPoints');
-	    item.color = !annotation.has('C') ? [] :
-		annotation.get('C');
-	    // Spec says the default is 1 but use 0.4 until
-	    // we handle appearance streams properly
-	    item.opacity = !annotation.has('CA') ? 0.4 :
-		annotation.get('CA');
-	    break;
-	case 'Popup':
-	    var parent = !annotation.has('Parent') ? null :
-		annotation.get('Parent');
-	    var content = !parent.has('Contents') ?
-		annotation.get('Contents') : parent.get('Contents');
-	    var title = !parent.has('T') ? annotation.get('T') :
-		parent.get('T');
-	    var color = !parent.has('C') ? annotation.get('C') :
-		parent.get('C');
-	    item.content = stringToPDFString(content || '');
-	    item.title = stringToPDFString(title || '');
-	    item.color = color;
-          default:
-            TODO('unimplemented annotation type: ' + subtype.name);
-            break;
+          var content = annotation.get('Contents');
+          var title = annotation.get('T');
+          if (annotation.has('AP'))
+            TODO('Support appearance streams');
+          item.content = stringToPDFString(content || '');
+          item.title = stringToPDFString(title || '');
+          item.quadpoints = annotation.get('QuadPoints');
+          item.color = !annotation.has('C') ? [] :
+            annotation.get('C');
+          // Spec says the default is 1 but use 0.4 until
+          // we handle appearance streams properly
+          item.opacity = !annotation.has('CA') ? 0.4 :
+            annotation.get('CA');
+          var popup = annotation.get('Popup');
+          item.popup = {};
+          item.popup.rect = popup.get('Rect');
+          if (popup.has('Parent')) {
+            item.popup.content = item.content;
+            item.popup.title = item.title;
+            item.popup.color = item.color;
+          } else {
+            var content = popup.get('Contents');
+            var title = popup.get('T');
+            item.popup.content = stringToPDFString(content || '');
+            item.popup.title = stringToPDFString(content || '');
+            item.popup.color = !popup.has('C') ? [] : popup.get('C');
+            
+          }
+          break;
+        case 'Popup':
+          // This gets handled inside 'Highlight' so
+          // prevent the unimplemented message from showing
+          break;
+        default:
+          TODO('unimplemented annotation type: ' + subtype.name);
+          break;
         }
         items.push(item);
       }
