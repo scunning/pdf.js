@@ -349,10 +349,25 @@ var Page = (function PageClosure() {
 	    item.content = stringToPDFString(content || '');
 	    item.title = stringToPDFString(title || '');
 	    item.quadpoints = annotation.get('QuadPoints');
-	    // Other PDF tools seem to default to green for highlights
-	    item.color = !annotation.has('C') ? [0, 1, 0] :
+	    item.color = !annotation.has('C') ? [] :
 		annotation.get('C');
+	    // Spec says the default is 1 but use 0.4 until
+	    // we handle appearance streams properly
+	    item.opacity = !annotation.has('CA') ? 0.4 :
+		annotation.get('CA');
 	    break;
+	case 'Popup':
+	    var parent = !annotation.has('Parent') ? null :
+		annotation.get('Parent');
+	    var content = !parent.has('Contents') ?
+		annotation.get('Contents') : parent.get('Contents');
+	    var title = !parent.has('T') ? annotation.get('T') :
+		parent.get('T');
+	    var color = !parent.has('C') ? annotation.get('C') :
+		parent.get('C');
+	    item.content = stringToPDFString(content || '');
+	    item.title = stringToPDFString(title || '');
+	    item.color = color;
           default:
             TODO('unimplemented annotation type: ' + subtype.name);
             break;

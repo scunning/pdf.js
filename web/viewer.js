@@ -1100,21 +1100,7 @@ var PageView = function pageView(container, pdfPage, id, scale,
       return container;
     }
     function createHighlightAnnotation(item) {
-      // TODO Implement Popup annotation support and then fix this
-      // TODO use QuadPoints instead of Rect
-      // TODO support multiple highlights in one annotation as per spec
-      // 8.4.5 - Text Markup Annotations, Table 8.30
-      // TODO add support for Underline, Squiggly, and StrikeOut
-      // Note Figure 8.9 doesn't match with actual PDFs, (x3,y3) and (x4, y4)
-      // need to be swapped
-      // Also remember implementation note 92 in Appendix H
-      // - text is oriented with respect to vertex with smallest y value
-      // (or leftmost if match) and next counterclockwise vertex
-      // regardless of position in array
-      // will need to look into CSS transformations to support
-      // the arbitary rotation that is possible
-      // NOTE: CSS transform.rotate works from the center of the element
-      // TODO: Support rotated highlights
+      // TODO Implement Popup annotation support
 
       // Future function note
       // Annotations can be added at runtime by using to
@@ -1125,17 +1111,96 @@ var PageView = function pageView(container, pdfPage, id, scale,
       // call PDFView.parseScale on the stored PDFView.currentScale value
       var container = document.createElement('section');
       container.className = 'annotHighlight';
-      var highlight = createElementWithStyle('div', item);
-        
-      
-      var color = item.color;
-      var rgbColor = "rgb(" + Math.floor(color[0] * 255) + "," +
-        Math.floor(color[1] * 255) + "," + Math.floor(color[2] * 255) + ")";
-      highlight.style.backgroundColor = rgbColor;
-
-      container.appendChild(highlight);
-
+      var quads = createQuadDisplayElements(item);
+      for (var i = 0; i < quads.length; i++) {
+        var child = quads[i];
+        child.addEventListener('click', function(evt) {
+            alert('highlight click');
+          }, false);
+        container.appendChild(child);
+      }
       return container;
+    }
+    function createQuadDisplayElements(item) {
+      // Returns vertices in [LB, RB, RT, LT] order
+      // and converted to viewport units
+      function convertVertices(vrt) {
+        var b = Math.min(vrt[1], vrt[3], vrt[5], vrt[7]),
+          t = Math.max(vrt[1], vrt[3], vrt[5], vrt[7]),
+          l = Math.min(vrt[0], vrt[2], vrt[4], vrt[6]),
+          r = Math.max(vrt[0], vrt[2], vrt[4], vrt[6]);
+        return [viewport.convertToViewportPoint(l, b),
+                viewport.convertToViewportPoint(r, b),
+                viewport.convertToViewportPoint(r, t),
+                viewport.convertToViewportPoint(l, t)];
+      }
+      var elts = [];
+      var color = item.color;
+      log('color: ' + color);
+      var rgbColor = null;
+      if (color.length == 3) {
+        rgbColor = PDFJS.Util.makeCssRgb(color[0], color[1], color[2]);
+      } else {
+        log("TODO: Support DeviceGrey and DeviceCMYK for highlight colours");
+      }
+      var quads = item.quadpoints;
+      var quadcount = quads.length / 8;
+      var quadoffset = 0;
+      for (var i = 0; i < quadcount; i++) {
+        // Implementation note 92 says text orientation is determined
+        // by line from lowest, leftmost vertex to next counterclockwise one
+        // regardless of position in array
+        var vertices = 
+          convertVertices([quads[quadoffset], quads[quadoffset + 1],
+                           quads[quadoffset + 2], quads[quadoffset + 3],
+                           quads[quadoffset + 4], quads[quadoffset + 5],
+                           quads[quadoffset + 6], quads[quadoffset + 7]]);
+        
+        var angleDegrees; // Degrees are required by CSS Transform
+        if (vertices[1][0] == vertices[0][0]) {
+          angleDegrees = 90;
+        } else {
+          angleDegrees = (vertices[1][1] - vertices[0][1]) /
+            (vertices[1][0] - vertices[0][0]);
+          angleDegrees = Math.floor(Math.asin(angleDegrees) * 180 / Math.PI);
+        }
+        
+        var xDiff = vertices[1][0] - vertices[0][0],
+          yDiff = vertices[1][1] - vertices[0][1];
+        var width = Math.sqrt(xDiff * xDiff + yDiff * yDiff);
+        
+        xDiff = vertices[0][0] - vertices[3][0],
+          yDiff = vertices[0][1] - vertices[3][1];
+        var height = Math.sqrt(xDiff * xDiff + yDiff * yDiff);
+        
+        var quadRect = document.createElement('div');
+        quadRect.className = 'annotQuad';
+        quadRect.style.left = Math.floor(vertices[3][0]) + 'px';
+        quadRect.style.top = Math.floor(vertices[3][1]) + 'px';
+        quadRect.style.width = Math.ceil(width) + 'px';
+        quadRect.style.height = Math.ceil(height) + 'px';
+        
+        var transform = 'rotate(' + angleDegrees + 'deg)';
+        setPrefixedCSSProperty(quadRect, 'Transform', transform);
+
+        if (rgbColor) {
+          quadRect.style.backgroundColor = rgbColor;
+          quadRect.style.opacity = item.opacity;
+        }
+        elts.push(quadRect);
+      }
+      return elts;
+    }
+
+    function setPrefixedCSSProperty(elt, prop, val) {
+      elt.style[prop] = val;
+      elt.style['moz' + prop] = val;
+      elt.style['webkit' + prop] = val;
+      elt.style['ms' + prop] = val;
+      elt.style['o' + prop] = val;
+    }
+
+    function createPopupAnnotation(item) {
     }
 
     pdfPage.getAnnotations().then(function(items) {
@@ -1599,6 +1664,35 @@ var TextLayerBuilder = function textLayerBuilder(textLayerDiv) {
     textDiv.textContent = PDFJS.bidi(text, -1);
     textDiv.dir = text.direction;
     textDiv.dataset.textLength = text.length;
+    
+    // textDiv has to be above any annotation divs for highlighting to work
+    // so clicks need to be passed down to them
+    textDiv.addEventListener('mousedown', function(evt) {
+        var mouseup = function(evt) {
+          var zIndex = this.style.zIndex;
+          this.style.zIndex = -1000;
+          var tgtElt = document.elementFromPoint(evt.clientX, evt.clientY);
+          this.style.zIndex = zIndex;
+          if(tgtElt) {
+            var newEvt = document.createEvent('MouseEvents');
+            newEvt.initMouseEvent('click', true, true, window, evt.detail,
+                                  evt.screenX, evt.screenY,
+                                  evt.clientX, evt.clientY,
+                                  evt.crtlKey, evt.altKey,
+                                  evt.shiftKey, evt.metaKey,
+                                  evt.button, null);
+            tgtElt.dispatchEvent(newEvt);
+          }
+          this.removeEventListener('mouseup', mouseup, false);
+        }
+        var mousemove = function(evt) {
+          this.removeEventListener('mouseup', mouseup, false);
+          this.removeEventListener('mousemove', mousemove, false);
+        }
+        this.addEventListener('mousemove', mousemove, false);
+        this.addEventListener('mouseup', mouseup, false);
+      }, false);
+
     this.textDivs.push(textDiv);
   };
 };
